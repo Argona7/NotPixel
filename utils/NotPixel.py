@@ -101,6 +101,7 @@ class NotPixel:
                 if await self.event({"n": "pageview", "u": "https://app.notpx.app/claiming", "d": "notpx.app",
                                      "r": "https://web.telegram.org/"}):
 
+                    await asyncio.sleep(random.uniform(3,5))
                     await self.farming_claim()
 
                     if config.DO_TASKS:
