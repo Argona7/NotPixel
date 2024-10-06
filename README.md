@@ -65,12 +65,10 @@
 DONATIONS 
 ```txt
 ton   : UQDCSg-HwdwKA4OES8q6w35s4tPx_5k1QczMc17gAsTNLAhn
+
 evm networks : 0x13FFbeB41Ae9532e7F7ce32616726728ead3E859
 
-dash  : Xu4VUgxQTKk5URkbgMiZv6uLzJpHR4NH6y
-
-zec   : t1aFA4poLSA6psJ1pbsK63MeXKQ6ECkqz5M
 ```
 
 
-Thank you for using Blum Telegram Bot! Don't forget to follow our [Telegram channel](https://t.me/petyasofts) for updates.
+
