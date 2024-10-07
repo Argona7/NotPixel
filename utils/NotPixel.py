@@ -167,7 +167,7 @@ class NotPixel:
         balance = int(status["userBalance"])
         boosts = status["boosts"]
         for key, value in boosts.items():
-            if config.max_limits[key] < value:
+            if config.max_limits[key] > value:
                 if balance >= config.levels[value]:
                     resp = await self.upgrade(key)
                     if resp:
