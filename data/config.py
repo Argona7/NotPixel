@@ -1,6 +1,6 @@
 # api id, hash
-API_ID = 11111
-API_HASH = ""
+API_ID = 22884340
+API_HASH = "0cf469980e1a862a56983fd060786d18"
 
 USE_TG_BOT = False  # True if you want use tg, else False
 BOT_TOKEN = '283993:kdmioieiweikiokeocki4okew'  # API TOKEN get in @BotFather
@@ -35,7 +35,7 @@ channel = {"channel:notcoin", "channel:notpixel_channel"}
 colors = ["#E46E6E", "#FFD635", "#7EED56", "#00CCC0", "#BE0039", "#FF9600", "#00CC78", "#009EAA", "#3690EA", "#6D001A",
           "#BF4300", "#00A368", "#00756F", "#2450A4"]
 
-levels = {1: 5, 2: 100, 3: 200, 4: 300, 5: 500, 6: 600, 7: 700, 8: 800, 9: 950, 10: 900}
+levels = {1: 5, 2: 100, 3: 200, 4: 300, 5: 400, 6: 500, 7: 600, 8: 700, 9: 800, 10: 900}
 
 max_limits = {"energyLimit": 6, "paintReward": 7, "reChargeSpeed": 11}
 
