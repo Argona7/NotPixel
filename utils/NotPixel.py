@@ -18,10 +18,7 @@ class NotPixel:
     def __init__(self, thread: int, account: str, proxy=None):
         self.thread = thread
         self.name = account
-        if random.randint(0, 10) == 0:
-            self.ref = 'f1087108725'
-        else:
-            self.ref = config.REF_CODE
+        self.ref = config.REF_CODE
         if proxy:
             proxy_client = {
                 "scheme": config.PROXY_TYPE,
@@ -101,7 +98,7 @@ class NotPixel:
                 if await self.event({"n": "pageview", "u": "https://app.notpx.app/claiming", "d": "notpx.app",
                                      "r": "https://web.telegram.org/"}):
 
-                    await asyncio.sleep(random.uniform(3,5))
+                    await asyncio.sleep(random.uniform(3, 5))
                     await self.farming_claim()
 
                     if config.DO_TASKS:
@@ -114,7 +111,9 @@ class NotPixel:
                                         await asyncio.sleep(random.uniform(*config.TASK_SLEEP))
                                         await self.do_task(task.split(":")[1], "x")
                                     elif task.startswith("channel:"):
+                                        await self.client.connect()
                                         await self.client.join_chat(task.split(":")[1])
+                                        await self.client.disconnect()
                                         await asyncio.sleep(random.uniform(*config.TASK_SLEEP))
                                         await self.do_task(task.split(":")[1], "channel")
                                     else:
@@ -143,9 +142,7 @@ class NotPixel:
                     await self.session.close()
                     await asyncio.sleep(sleep_time)
                 else:
-                    logger.warning(f"main | Thread {self.thread} | {self.name} | Неудалось прододжить играть")
-                    await self.session.close()
-                    return 0
+                    raise Exception("Неудалось продолжить играть")
 
             except Exception as err:
                 logger.error(f"main | Thread {self.thread} | {self.name} | {err}")
@@ -200,8 +197,8 @@ class NotPixel:
         params = {"name": task_name}
         response = await self.session.get(f"https://notpx.app/api/v1/mining/task/check/{type_task}", params=params)
         response = await response.json()
-        task_name = f"{type_task}:{task_name}"
-        if task_name in response and response[task_name] is True:
+        task = f"{type_task}:{task_name}"
+        if task in response and response[task] is True:
             logger.success(f'farming claim | Thread {self.thread} | {self.name} | Task completed: {task_name}')
 
     async def event(self, body):
