@@ -29,14 +29,14 @@ MINI_SLEEP = [5, 9]
 DO_UPGRADES = True
 DO_TASKS = True
 
-tasks = {"x:notcoin", "x:notpixel", "channel:notcoin", "channel:notpixel_channel", "makePixelAvatar", "paint20pixels"}
-channel = {"channel:notcoin", "channel:notpixel_channel"}
+tasks = {"x:notcoin", "x:notpixel", "channel:notcoin", "channel:notpixel_channel", "makePixelAvatar", "paint20pixels",
+         "jettonTask"}
 
 colors = ["#E46E6E", "#FFD635", "#7EED56", "#00CCC0", "#BE0039", "#FF9600", "#00CC78", "#009EAA", "#3690EA", "#6D001A",
           "#BF4300", "#00A368", "#00756F", "#2450A4"]
 
-levels = {1: 5, 2: 100, 3: 200, 4: 300, 5: 400, 6: 500, 7: 600, 8: 700, 9: 800, 10: 900}
+max_limits = {"energyLimit": 7, "paintReward": 7, "reChargeSpeed": 9}
+levels = {"energyLimit": {1: 5, 2: 100, 3: 200, 4: 300, 5: 500, 6: 10},
+          "paintReward": {1: 5, 2: 100, 3: 200, 4: 300, 5: 500, 6: 600},
+          "reChargeSpeed": {1: 5, 2: 100, 3: 200, 4: 300, 5: 400, 6: 500, 7: 600, 8: 700}}
 
-max_limits = {"energyLimit": 6, "paintReward": 7, "reChargeSpeed": 11}
-
-re_charge_speed = {1: 600, 2: 570, 3: 540, 4: 510, 5: 480, 6: 450, 7: 420, 8: 390}
