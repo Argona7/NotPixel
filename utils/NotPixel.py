@@ -68,18 +68,19 @@ class NotPixel:
                 try:
                     login = await self.login()
                     if login is False:
-                        await self.session.close()
-                        logger.error(f"main | Thread {self.thread} | {self.name} | Failed to log in!")
-                        return 0
+                        raise Exception("Failed to log in!")
                     logger.info(f"main | Thread {self.thread} | {self.name} | Start! | PROXY : {self.proxy}")
                 except Exception as err:
                     logger.error(f"main | Thread {self.thread} | {self.name} | {err}")
+                    await asyncio.sleep(random.uniform(300, 450))
                     await self.session.close()
-                    return 0
+                    continue
 
                 await self.me()
                 status = await self.status()
                 await self.list()
+                await self.event({"n": "pageview", "u": "https://app.notpx.app/", "d": "notpx.app",
+                                     "r": "https://web.telegram.org/"})
                 await self.squad()
                 await asyncio.sleep(random.uniform(*config.MINI_SLEEP))
                 if status:
@@ -136,8 +137,7 @@ class NotPixel:
 
                 status = await self.status()
                 if status:
-                    sleep_time = status["maxCharges"] * config.re_charge_speed[
-                        status["boosts"]["reChargeSpeed"]] + random.randint(300, 600)
+                    sleep_time = status["maxCharges"] * (status["reChargeSpeed"] // 1000) + random.randint(100, 600)
                     logger.info(f"main | Thread {self.thread} | {self.name} | КРУГ ОКОНЧЕН! Ожидание: {sleep_time}")
                     await self.session.close()
                     await asyncio.sleep(sleep_time)
@@ -165,10 +165,10 @@ class NotPixel:
         boosts = status["boosts"]
         for key, value in boosts.items():
             if config.max_limits[key] > value:
-                if balance >= config.levels[value]:
+                if balance >= config.levels[key][value]:
                     resp = await self.upgrade(key)
                     if resp:
-                        balance = balance - config.levels[value]
+                        balance = balance - config.levels[key][value]
                     await asyncio.sleep(random.uniform(*config.MINI_SLEEP))
 
     async def upgrade(self, type_upgrade: str):
@@ -199,7 +199,7 @@ class NotPixel:
         response = await response.json()
         task = f"{type_task}:{task_name}"
         if task in response and response[task] is True:
-            logger.success(f'farming claim | Thread {self.thread} | {self.name} | Task completed: {task_name}')
+            logger.success(f'farming claim | Thread {self.thread} | {self.name} | Task completed: {task_name} {type_task}')
 
     async def event(self, body):
         response = await self.session.post("https://plausible.joincommunity.xyz/api/event", json=body)
