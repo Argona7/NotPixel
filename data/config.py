@@ -9,7 +9,7 @@ CHAT_ID = '22803822'  # Your telegram id
 ACC_DELAY = [1, 300]
 
 # тип прокси
-PROXY_TYPE = "http"  # http/socks5
+PROXY_TYPE = "socks5"  # http/socks5
 
 # папка с сессиями (не менять)
 WORKDIR = "sessions/"
@@ -17,7 +17,7 @@ WORKDIR = "sessions/"
 # использование прокси
 USE_PROXY = True  # True/False
 
-EXCLUDE_SESSIONS = [] # Название сессий которые нужно исключить
+EXCLUDE_SESSIONS = ["deadrees", "ranker", "rimuru"]
 
 # реф код, идет после startapp=
 REF_CODE = 'f1087108725'
@@ -38,7 +38,8 @@ colors = ["#E46E6E", "#FFD635", "#7EED56", "#00CCC0", "#BE0039", "#FF9600", "#00
           "#BF4300", "#00A368", "#00756F", "#2450A4"]
 
 max_limits = {"energyLimit": 7, "paintReward": 7, "reChargeSpeed": 9}
-levels = {"energyLimit": {1: 5, 2: 100, 3: 200, 4: 300, 5: 500, 6: 10},
+levels = {"energyLimit": {1: 5, 2: 100, 3: 200, 4: 300, 5: 400, 6: 10},
           "paintReward": {1: 5, 2: 100, 3: 200, 4: 300, 5: 500, 6: 600},
           "reChargeSpeed": {1: 5, 2: 100, 3: 200, 4: 300, 5: 400, 6: 500, 7: 600, 8: 700}}
 
+BAD_RESPONSES = [500, 502, 504, 524]
