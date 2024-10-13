@@ -200,7 +200,7 @@ class NotPixel:
                 if task_name in response and response[task_name] is True:
                     logger.success(f'task | Thread {self.thread} | {self.name} | Task completed: {task_name}')
                     return True
-                return False
+            return False
         params = {"name": task_name}
         response = await self.session.get(f"https://notpx.app/api/v1/mining/task/check/{type_task}", params=params)
         if response.status not in config.BAD_RESPONSES:
