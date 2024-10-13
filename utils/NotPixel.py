@@ -138,7 +138,7 @@ class NotPixel:
 
                 status = await self.status()
                 if status:
-                    sleep_time = status["maxCharges"] * (status["reChargeSpeed"] // 1000) + random.randint(100, 600)
+                    sleep_time = (status["maxCharges"] - status["charges"]) * (status["reChargeSpeed"] // 1000) + random.randint(100, 600)
                     logger.info(f"main | Thread {self.thread} | {self.name} | КРУГ ОКОНЧЕН! Ожидание: {sleep_time}")
                     await self.session.close()
                     await asyncio.sleep(sleep_time)
@@ -154,10 +154,11 @@ class NotPixel:
     async def paint(self, pixel_id: int, color: str):
         body = {"pixelId": pixel_id, "newColor": color}
         response = await self.session.post("https://notpx.app/api/v1/repaint/start", json=body)
-        response = await response.json()
-        if "balance" in response:
-            logger.success(f'paint | Thread {self.thread} | {self.name} | paint successfully: {response["balance"]}')
-            return True
+        if response.status not in config.BAD_RESPONSES:
+            response = await response.json()
+            if "balance" in response:
+                logger.success(f'paint | Thread {self.thread} | {self.name} | paint successfully: {response["balance"]}')
+                return True
         return False
 
     async def upgrade_skills(self):
@@ -174,13 +175,15 @@ class NotPixel:
 
     async def upgrade(self, type_upgrade: str):
         response = await self.session.get(f"https://notpx.app/api/v1/mining/boost/check/{type_upgrade}")
-        response = await response.json()
-        if "error" in response:
-            logger.warning(f'upgrade | Thread {self.thread} | {self.name} | {response["error"]}')
-            return False
-        if response[type_upgrade] is True:
-            logger.success(f'upgrade | Thread {self.thread} | {self.name} | Successfully upgraded : {type_upgrade}')
-            return True
+        if response.status not in config.BAD_RESPONSES:
+            response = await response.json()
+            if "error" in response:
+                logger.warning(f'upgrade | Thread {self.thread} | {self.name} | {response["error"]}')
+                return False
+            if response[type_upgrade] is True:
+                logger.success(f'upgrade | Thread {self.thread} | {self.name} | Successfully upgraded : {type_upgrade}')
+                return True
+        return False
 
     async def farming_claim(self):
         response = await self.session.get("https://notpx.app/api/v1/mining/claim")
@@ -192,16 +195,22 @@ class NotPixel:
     async def do_task(self, task_name, type_task=None):
         if not type_task:
             response = await self.session.get(f"https://notpx.app/api/v1/mining/task/check/{task_name}")
-            response = await response.json()
-            if task_name in response and response[task_name] is True:
-                logger.success(f'farming claim | Thread {self.thread} | {self.name} | Task completed: {task_name}')
+            if response.status not in config.BAD_RESPONSES:
+                response = await response.json()
+                if task_name in response and response[task_name] is True:
+                    logger.success(f'task | Thread {self.thread} | {self.name} | Task completed: {task_name}')
+                    return True
+                return False
         params = {"name": task_name}
         response = await self.session.get(f"https://notpx.app/api/v1/mining/task/check/{type_task}", params=params)
-        response = await response.json()
-        task = f"{type_task}:{task_name}"
-        if task in response and response[task] is True:
-            logger.success(
-                f'farming claim | Thread {self.thread} | {self.name} | Task completed: {task_name} {type_task}')
+        if response.status not in config.BAD_RESPONSES:
+            response = await response.json()
+            task = f"{type_task}:{task_name}"
+            if task in response and response[task] is True:
+                logger.success(
+                    f'task | Thread {self.thread} | {self.name} | Task completed: {task_name} {type_task}')
+                return True
+        return False
 
     async def event(self, body):
         del self.session.headers['authorization']
