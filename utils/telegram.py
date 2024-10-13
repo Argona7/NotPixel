@@ -14,7 +14,9 @@ class Accounts:
         sessions = []
         for file in os.listdir(self.workdir):
             if file.endswith(".session"):
-                sessions.append(file.replace(".session", ""))
+                if file.replace(".session", "") not in config.EXCLUDE_SESSIONS:
+                    sessions.append(file.replace(".session", ""))
+
 
         logger.info(f"Найдено сессий: {len(sessions)}!")
         return sessions
