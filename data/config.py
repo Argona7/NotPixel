@@ -17,6 +17,8 @@ WORKDIR = "sessions/"
 # использование прокси
 USE_PROXY = True  # True/False
 
+EXCLUDE_SESSIONS = [] # Название сессий которые нужно исключить
+
 # реф код, идет после startapp=
 REF_CODE = 'f1087108725'
 
