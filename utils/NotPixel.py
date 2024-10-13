@@ -1,7 +1,7 @@
 from urllib.parse import unquote
 from fake_useragent import UserAgent
 from pyrogram import Client
-from data import config
+from NotPixel.data import config
 from utils.core import logger
 
 from aiohttp_socks import ProxyConnector
@@ -16,6 +16,9 @@ import random
 class NotPixel:
 
     def __init__(self, thread: int, account: str, proxy=None):
+        self.user_info = None
+        self.token = None
+        self.auth_url = None
         self.thread = thread
         self.name = account
         self.ref = config.REF_CODE
@@ -45,12 +48,12 @@ class NotPixel:
         headers = {
             'accept': 'application/json, text/plain, */*',
             'accept-encoding': 'gzip, deflate, br, zstd',
-            'accept-language': 'ru',
-            'dnt': '1',
+            'accept-language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
             'origin': 'https://app.notpx.app',
             'priority': 'u=1, i',
             'referer': 'https://app.notpx.app/',
             'sec-ch-ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+            'sec-ch-ua-mobile':'?1',
             'sec-ch-ua-platform': '"Android"',
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
@@ -76,11 +79,9 @@ class NotPixel:
                     await self.session.close()
                     continue
 
-                await self.me()
+                await self.my()
                 status = await self.status()
-                await self.list()
-                await self.event({"n": "pageview", "u": "https://app.notpx.app/", "d": "notpx.app",
-                                     "r": "https://web.telegram.org/"})
+                # await self.list()
                 await self.squad()
                 await asyncio.sleep(random.uniform(*config.MINI_SLEEP))
                 if status:
@@ -199,12 +200,21 @@ class NotPixel:
         response = await response.json()
         task = f"{type_task}:{task_name}"
         if task in response and response[task] is True:
-            logger.success(f'farming claim | Thread {self.thread} | {self.name} | Task completed: {task_name} {type_task}')
+            logger.success(
+                f'farming claim | Thread {self.thread} | {self.name} | Task completed: {task_name} {type_task}')
 
     async def event(self, body):
+        del self.session.headers['authorization']
         response = await self.session.post("https://plausible.joincommunity.xyz/api/event", json=body)
+        self.session.headers['authorization'] = self.token
         if response.status == 202:
             return True
+        return False
+
+    async def my(self):
+        response = await self.session.get("https://notpx.app/api/v1/image/template/my")
+        if response.status == 200:
+            return await response.json()
         return False
 
     async def me(self):
@@ -242,8 +252,7 @@ class NotPixel:
                     start_param=self.ref
                 ))
 
-                auth_url = web_view.url
-
+                self.auth_url = web_view.url
                 self.user_info = await self.client.get_me()
             except Exception as err:
                 logger.error(f"main | Thread {self.thread} | {self.name} | {err}")
@@ -251,7 +260,7 @@ class NotPixel:
                     logger.error(f"login | Thread {self.thread} | {self.name} | USER BANNED")
                     await self.client.disconnect()
                     return False
-            return unquote(string=auth_url.split('tgWebAppData=')[1].split('&tgWebAppVersion')[0])
+            return unquote(string=self.auth_url.split('tgWebAppData=')[1].split('&tgWebAppVersion')[0])
 
     async def login(self):
         try:
@@ -259,7 +268,10 @@ class NotPixel:
             if tg_web_data is False:
                 return False
 
-            self.session.headers['authorization'] = f"initData {tg_web_data}"
+            self.token = f"initData {tg_web_data}"
+            self.session.headers['authorization'] = self.token
+            await self.event({"n": "pageview", "u": self.auth_url, "d": "notpx.app",
+                              "r": "https://web.telegram.org/"})
             if not await self.me():
                 return False
             return True
