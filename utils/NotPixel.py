@@ -7,6 +7,9 @@ from utils.core import logger
 from aiohttp_socks import ProxyConnector
 from pyrogram.raw.functions.messages import RequestAppWebView
 from pyrogram.raw.types import InputBotAppShortName
+from PIL import Image
+from io import BytesIO
+from time import time
 
 import aiohttp
 import asyncio
@@ -53,7 +56,7 @@ class NotPixel:
             'priority': 'u=1, i',
             'referer': 'https://app.notpx.app/',
             'sec-ch-ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
-            'sec-ch-ua-mobile':'?1',
+            'sec-ch-ua-mobile': '?1',
             'sec-ch-ua-platform': '"Android"',
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
@@ -79,22 +82,77 @@ class NotPixel:
                     await self.session.close()
                     continue
 
-                await self.my()
                 status = await self.status()
-                # await self.list()
                 await self.squad()
-                await asyncio.sleep(random.uniform(*config.MINI_SLEEP))
-                if status:
-                    curr_cords = []
-                    for i in range(status["charges"]):
-                        if not curr_cords:
-                            curr_cords = [random.randint(100, 800), random.randint(100, 800)]
+                template_info = await self.my() # информация о выбранном шаблоне
+                if template_info == {}: # если шаблон не установлен , происходит его установка
+                    await self.event({"n": "pageview", "u": "https://app.notpx.app/template", "d": "notpx.app",
+                                      "r": "https://web.telegram.org/"})
 
-                        rand_number = random.choice([i for i in range(-30, 31) if i != 0])
-                        cord = curr_cords[0] * 1000 + rand_number * 1000 + curr_cords[1] + rand_number
-                        color = random.choice(config.colors)
-                        await self.paint(cord, color)
-                        await asyncio.sleep(random.uniform(*config.PAINT_SLEEP))
+                    templates_1 = await self.list(0)
+                    await asyncio.sleep(random.uniform(2, 4))
+                    templates_2 = await self.list(12)
+                    await asyncio.sleep(random.uniform(2, 4))
+                    templates_3 = await self.list(24)
+                    if templates_1 and templates_2 and templates_3:
+                        templates = [*templates_1, *templates_2, *templates_3]
+
+                        template_id = random.choice([i["templateId"] for i in templates])
+                        await asyncio.sleep(random.uniform(3, 5))
+                        await self.choose_template(template_id)
+
+                        logger.success(f"main | Thread {self.thread} | {self.name} | Template installed!")
+                        await asyncio.sleep(random.uniform(150, 300))
+                        await self.session.close()
+                        continue
+
+                    raise Exception("Template installation failed")
+
+                elif template_info is False:
+                    raise Exception("Failed to load the template")
+
+                template_image = await self.get_template(template_info['id']) # изображение шаблона
+                await asyncio.sleep(random.uniform(*config.MINI_SLEEP))
+                if config.DO_PAINT:
+                    if template_info and template_image and status:
+                        template_image = template_image.convert("RGB")
+                        x_cord = template_info['x']
+                        y_cord = template_info['y']
+                        size = template_info['imageSize']
+
+                        charges = status["charges"]
+                        y_cord_list = list(range(y_cord, y_cord + size))
+                        while charges > 0:
+                            map_template = await self.get_map_template() # изображение карты
+                            map_template = map_template.convert("RGB")
+                            if not map_template:
+                                await asyncio.sleep(random.uniform(*config.MINI_SLEEP))
+                                continue
+
+                            if not y_cord_list:
+                                raise Exception("Template already full painted")
+
+                            y = random.choice(y_cord_list)
+                            y_cord_list.remove(y)
+
+                            for x in range(x_cord, x_cord + size):
+                                if charges == 0:
+                                    break
+                                if random.randint(0, 3) == 0: # чем чаще будет обновляться карта , тем точнее будут закрашивания
+                                    map_template = await self.get_map_template()
+
+                                map_template = map_template.convert("RGB")
+                                r, g, b = map_template.getpixel((x, y))
+                                hex_color_map = f"#{r:02X}{g:02X}{b:02X}"
+                                r, g, b = template_image.getpixel((x - x_cord, y - y_cord))
+                                hex_color_template = f"#{r:02X}{g:02X}{b:02X}"
+                                if hex_color_map != hex_color_template: # если цвет на шаблоне не совпадает с изначальным происходит закрашивание пикселя
+                                    cord = y * 1000 + x
+                                    color = hex_color_template
+                                    paint = await self.paint(cord, color)
+                                    if paint:
+                                        charges -= 1
+                                    await asyncio.sleep(random.uniform(*config.PAINT_SLEEP))
 
                 await asyncio.sleep(random.uniform(*config.MINI_SLEEP))
                 if await self.event({"n": "pageview", "u": "https://app.notpx.app/claiming", "d": "notpx.app",
@@ -138,7 +196,8 @@ class NotPixel:
 
                 status = await self.status()
                 if status:
-                    sleep_time = (status["maxCharges"] - status["charges"]) * (status["reChargeSpeed"] // 1000) + random.randint(100, 600)
+                    sleep_time = (status["maxCharges"] - status["charges"]) * (
+                            status["reChargeSpeed"] // 1000) + random.randint(100, 600)
                     logger.info(f"main | Thread {self.thread} | {self.name} | КРУГ ОКОНЧЕН! Ожидание: {sleep_time}")
                     await self.session.close()
                     await asyncio.sleep(sleep_time)
@@ -157,7 +216,8 @@ class NotPixel:
         if response.status not in config.BAD_RESPONSES:
             response = await response.json()
             if "balance" in response:
-                logger.success(f'paint | Thread {self.thread} | {self.name} | paint successfully: {response["balance"]}')
+                logger.success(
+                    f'paint | Thread {self.thread} | {self.name} | paint successfully: {response["balance"]} : {pixel_id}')
                 return True
         return False
 
@@ -165,6 +225,7 @@ class NotPixel:
         status = await self.status()
         balance = int(status["userBalance"])
         boosts = status["boosts"]
+
         for key, value in boosts.items():
             if config.max_limits[key] > value:
                 if balance >= config.levels[key][value]:
@@ -212,6 +273,37 @@ class NotPixel:
                 return True
         return False
 
+    async def choose_template(self, template_id):
+        await self.session.get(f"https://notpx.app/api/v1/image/template/{template_id}")
+        response = await self.session.put(f"https://notpx.app/api/v1/image/template/subscribe/{template_id}")
+        await self.session.get(f"https://notpx.app/api/v1/image/template/{template_id}")
+        if response.status == 204:
+            return True
+        return False
+
+    async def get_template(self, template_id):
+        del self.session.headers['authorization']
+        params = {"time": str(int(time() * 1000))}
+        response = await self.session.get(f"https://static.notpx.app/templates/{template_id}.png", params=params)
+        self.session.headers['authorization'] = self.token
+        if response.status == 200:
+            image_data = await response.read()
+            image = Image.open(BytesIO(image_data))
+            return image
+
+        return False
+
+    async def get_map_template(self):
+        del self.session.headers['authorization']
+        response = await self.session.get(f"https://image.notpx.app/api/v2/image")
+        self.session.headers['authorization'] = self.token
+        if response.status == 200:
+            image_data = await response.read()
+            image = Image.open(BytesIO(image_data))
+            return image
+
+        return False
+
     async def event(self, body):
         del self.session.headers['authorization']
         response = await self.session.post("https://plausible.joincommunity.xyz/api/event", json=body)
@@ -224,6 +316,8 @@ class NotPixel:
         response = await self.session.get("https://notpx.app/api/v1/image/template/my")
         if response.status == 200:
             return await response.json()
+        if response.status == 404 and (await response.json())["error"] == "not found":
+            return {}
         return False
 
     async def me(self):
@@ -244,8 +338,9 @@ class NotPixel:
             return True
         return False
 
-    async def list(self):
-        response = await self.session.get("https://notpx.app/api/v1/buy/list")
+    async def list(self, offset):
+        params = {"limit": "12", "offset": str(offset)}
+        response = await self.session.get("https://notpx.app/api/v1/image/template/list", params=params)
         if response.status == 200:
             return await response.json()
         return False
