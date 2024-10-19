@@ -1,7 +1,7 @@
 from urllib.parse import unquote
 from fake_useragent import UserAgent
 from pyrogram import Client
-from NotPixel.data import config
+from data import config
 from utils.core import logger
 
 from aiohttp_socks import ProxyConnector
