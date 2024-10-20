@@ -132,7 +132,8 @@ class NotPixel:
                             if not y_cord_list:
                                 raise Exception("Template already full painted")
 
-                            y = random.choice(y_cord_list)
+                            weights = [2 if i < 15 or i >= size - 15 else 1 for i in range(len(y_cord_list))] #увеличиваем вероятность выбора координат в начале шаблона и в конце , т.к там меньше закрашиваний
+                            y = random.choices(y_cord_list, weights=weights, k=1)[0]
                             y_cord_list.remove(y)
 
                             for x in range(x_cord, x_cord + size):
