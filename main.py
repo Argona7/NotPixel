@@ -7,7 +7,6 @@ import asyncio
 import os
 import time
 
-
 async def main():
     action = int(input('Выберите действие:\n1. Начать сбор монет\n2. Создать сессию\n>'))
 

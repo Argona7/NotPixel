@@ -9,7 +9,7 @@ CHAT_ID = '22803822'  # Your telegram id
 ACC_DELAY = [5, 300]
 
 # тип прокси
-PROXY_TYPE = "socks5"  # http/socks5
+PROXY_TYPE = "http"  # http/socks5
 
 # папка с сессиями (не менять)
 WORKDIR = "sessions/"
@@ -44,3 +44,6 @@ levels = {"energyLimit": {1: 5, 2: 100, 3: 200, 4: 300, 5: 400, 6: 10},
           "reChargeSpeed": {1: 5, 2: 100, 3: 200, 4: 300, 5: 400, 6: 500, 7: 600, 8: 700}}
 
 BAD_RESPONSES = [500, 502, 504, 524]
+
+# Фингерпринты, поддерживаемые можно посмотреть на https://curl-cffi.readthedocs.io/en/latest/impersonate.html
+FINGERPRINTS = ["chrome99_android", "safari15_3", "safari15_5", "safari17_0", "safari17_2_ios"]

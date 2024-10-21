@@ -1,17 +1,13 @@
 from urllib.parse import unquote
-from fake_useragent import UserAgent
 from pyrogram import Client
 from data import config
 from utils.core import logger
-
-from aiohttp_socks import ProxyConnector
+from curl_cffi.requests import AsyncSession
 from pyrogram.raw.functions.messages import RequestAppWebView
 from pyrogram.raw.types import InputBotAppShortName
 from PIL import Image
 from io import BytesIO
 from time import time
-
-import aiohttp
 import asyncio
 import random
 
@@ -33,21 +29,28 @@ class NotPixel:
                 "username": proxy.split(':')[2],
                 "password": proxy.split(':')[3],
             }
-            self.client = Client(name=account, api_id=config.API_ID, api_hash=config.API_HASH, workdir=config.WORKDIR,
+            self.client = Client(name=account, 
+                                 api_id=config.API_ID, 
+                                 api_hash=config.API_HASH, 
+                                 workdir=config.WORKDIR,
                                  proxy=proxy_client)
         else:
-            self.client = Client(name=account, api_id=config.API_ID, api_hash=config.API_HASH, workdir=config.WORKDIR)
+            self.client = Client(name=account, 
+                                 api_id=config.API_ID, 
+                                 api_hash=config.API_HASH, 
+                                 workdir=config.WORKDIR)
 
         if proxy:
-            self.proxy = f"{config.PROXY_TYPE}://{proxy.split(':')[2]}:{proxy.split(':')[3]}@{proxy.split(':')[0]}:{proxy.split(':')[1]}"
+            self.proxy = {
+                "http": f"{config.PROXY_TYPE}://{proxy.split(':')[2]}:{proxy.split(':')[3]}@{proxy.split(':')[0]}:{proxy.split(':')[1]}",
+                "https": f"{config.PROXY_TYPE}://{proxy.split(':')[2]}:{proxy.split(':')[3]}@{proxy.split(':')[0]}:{proxy.split(':')[1]}"
+            }
         else:
             self.proxy = None
 
         self.auth_token = ""
 
     async def create_session(self):
-        connector = ProxyConnector.from_url(self.proxy) if self.proxy else aiohttp.TCPConnector(verify_ssl=False)
-
         headers = {
             'accept': 'application/json, text/plain, */*',
             'accept-encoding': 'gzip, deflate, br, zstd',
@@ -61,10 +64,9 @@ class NotPixel:
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-site',
-            'user-agent': UserAgent(os='android').random
         }
-
-        return aiohttp.ClientSession(headers=headers, trust_env=True, connector=connector)
+        impersonate = random.choice(config.FINGERPRINTS)
+        return AsyncSession(headers=headers, impersonate=impersonate, verify=False, proxies=self.proxy)
 
     async def main(self):
         await asyncio.sleep(random.randint(*config.ACC_DELAY))
@@ -75,7 +77,7 @@ class NotPixel:
                     login = await self.login()
                     if login is False:
                         raise Exception("Failed to log in!")
-                    logger.info(f"main | Thread {self.thread} | {self.name} | Start! | PROXY : {self.proxy}")
+                    logger.info(f"main | Thread {self.thread} | {self.name} | Start! | PROXY : {self.session.proxies['https']}")
                 except Exception as err:
                     logger.error(f"main | Thread {self.thread} | {self.name} | {err}")
                     await asyncio.sleep(random.uniform(300, 450))
@@ -214,8 +216,8 @@ class NotPixel:
     async def paint(self, pixel_id: int, color: str):
         body = {"pixelId": pixel_id, "newColor": color}
         response = await self.session.post("https://notpx.app/api/v1/repaint/start", json=body)
-        if response.status not in config.BAD_RESPONSES:
-            response = await response.json()
+        if response.status_code not in config.BAD_RESPONSES:
+            response = response.json()
             if "balance" in response:
                 logger.success(
                     f'paint | Thread {self.thread} | {self.name} | paint successfully: {response["balance"]} : {pixel_id}')
@@ -237,8 +239,8 @@ class NotPixel:
 
     async def upgrade(self, type_upgrade: str):
         response = await self.session.get(f"https://notpx.app/api/v1/mining/boost/check/{type_upgrade}")
-        if response.status not in config.BAD_RESPONSES:
-            response = await response.json()
+        if response.status_code not in config.BAD_RESPONSES:
+            response = response.json()
             if "error" in response:
                 logger.warning(f'upgrade | Thread {self.thread} | {self.name} | {response["error"]}')
                 return False
@@ -249,7 +251,7 @@ class NotPixel:
 
     async def farming_claim(self):
         response = await self.session.get("https://notpx.app/api/v1/mining/claim")
-        if response.status == 200:
+        if response.status_code == 200:
             logger.success(f'farming claim | Thread {self.thread} | {self.name} | farming reward claimed successfully!')
             return True
         return False
@@ -257,16 +259,16 @@ class NotPixel:
     async def do_task(self, task_name, type_task=None):
         if not type_task:
             response = await self.session.get(f"https://notpx.app/api/v1/mining/task/check/{task_name}")
-            if response.status not in config.BAD_RESPONSES:
-                response = await response.json()
+            if response.status_code not in config.BAD_RESPONSES:
+                response = response.json()
                 if task_name in response and response[task_name] is True:
                     logger.success(f'task | Thread {self.thread} | {self.name} | Task completed: {task_name}')
                     return True
             return False
         params = {"name": task_name}
         response = await self.session.get(f"https://notpx.app/api/v1/mining/task/check/{type_task}", params=params)
-        if response.status not in config.BAD_RESPONSES:
-            response = await response.json()
+        if response.status_code not in config.BAD_RESPONSES:
+            response = response.json()
             task = f"{type_task}:{task_name}"
             if task in response and response[task] is True:
                 logger.success(
@@ -278,7 +280,7 @@ class NotPixel:
         await self.session.get(f"https://notpx.app/api/v1/image/template/{template_id}")
         response = await self.session.put(f"https://notpx.app/api/v1/image/template/subscribe/{template_id}")
         await self.session.get(f"https://notpx.app/api/v1/image/template/{template_id}")
-        if response.status == 204:
+        if response.status_code == 204:
             return True
         return False
 
@@ -287,9 +289,8 @@ class NotPixel:
         params = {"time": str(int(time() * 1000))}
         response = await self.session.get(f"https://static.notpx.app/templates/{template_id}.png", params=params)
         self.session.headers['authorization'] = self.token
-        if response.status == 200:
-            image_data = await response.read()
-            image = Image.open(BytesIO(image_data))
+        if response.status_code == 200:
+            image = Image.open(BytesIO(response.content))
             return image
 
         return False
@@ -298,9 +299,8 @@ class NotPixel:
         del self.session.headers['authorization']
         response = await self.session.get(f"https://image.notpx.app/api/v2/image")
         self.session.headers['authorization'] = self.token
-        if response.status == 200:
-            image_data = await response.read()
-            image = Image.open(BytesIO(image_data))
+        if response.status_code == 200:
+            image = Image.open(BytesIO(response.content))
             return image
 
         return False
@@ -309,41 +309,41 @@ class NotPixel:
         del self.session.headers['authorization']
         response = await self.session.post("https://plausible.joincommunity.xyz/api/event", json=body)
         self.session.headers['authorization'] = self.token
-        if response.status == 202:
+        if response.status_code == 202:
             return True
         return False
 
     async def my(self):
         response = await self.session.get("https://notpx.app/api/v1/image/template/my")
-        if response.status == 200:
-            return await response.json()
-        if response.status == 404 and (await response.json())["error"] == "not found":
+        if response.status_code == 200:
+            return response.json()
+        if response.status_code == 404 and (response.json())["error"] == "not found":
             return {}
         return False
 
     async def me(self):
         response = await self.session.get("https://notpx.app/api/v1/users/me")
-        if response.status == 200:
-            return await response.json()
+        if response.status_code == 200:
+            return response.json()
         return False
 
     async def status(self):
         response = await self.session.get("https://notpx.app/api/v1/mining/status")
-        if response.status == 200:
-            return await response.json()
+        if response.status_code == 200:
+            return response.json()
         return False
 
     async def squad(self):
         response = await self.session.get("https://notpx.app/api/v1/ratings/squads/576576")
-        if response.status == 200:
+        if response.status_code == 200:
             return True
         return False
 
     async def list(self, offset):
         params = {"limit": "12", "offset": str(offset)}
         response = await self.session.get("https://notpx.app/api/v1/image/template/list", params=params)
-        if response.status == 200:
-            return await response.json()
+        if response.status_code == 200:
+            return response.json()
         return False
 
     async def get_tg_web_data(self):
