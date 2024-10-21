@@ -6,7 +6,7 @@ from data.config import  USE_PROXY, USE_TG_BOT, BOT_TOKEN
 import asyncio
 import os
 import time
-
+import sys
 
 async def main():
     action = int(input('Выберите действие:\n1. Начать сбор монет\n2. Создать сессию\n>'))
@@ -41,6 +41,8 @@ async def main():
 
 
 if __name__ == '__main__':
+    if sys.platform:
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(main())
     print("\nThe automation has been completed successfully!")
     time.sleep(3)
