@@ -10,11 +10,15 @@ from io import BytesIO
 from time import time
 import asyncio
 import random
-
+from utils import helpers
+from utils import headers
 
 class NotPixel:
 
     def __init__(self, thread: int, account: str, proxy=None):
+        self.ws_task = None
+        self.session_id = None
+        self.app_user = None
         self.user_info = None
         self.token = None
         self.auth_url = None
@@ -50,29 +54,38 @@ class NotPixel:
 
         self.auth_token = ""
 
-    async def create_session(self):
-        headers = {
-            'accept': 'application/json, text/plain, */*',
-            'accept-encoding': 'gzip, deflate, br, zstd',
-            'accept-language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-            'origin': 'https://app.notpx.app',
-            'priority': 'u=1, i',
-            'referer': 'https://app.notpx.app/',
-            'sec-ch-ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
-            'sec-ch-ua-mobile': '?1',
-            'sec-ch-ua-platform': '"Android"',
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-site',
-        }
-        impersonate = random.choice(config.FINGERPRINTS)
-        return AsyncSession(headers=headers, impersonate=impersonate, verify=False, proxies=self.proxy)
+    async def create_session(self, impersonate):
+        return AsyncSession(headers=headers.APP_HEADERS, 
+                            impersonate=impersonate, 
+                            verify=False, 
+                            proxies=self.proxy)
+    
+    async def create_analytics_session(self, impersonate):
+        content = random.choice(headers.CONTENT_DATA)
+        session = AsyncSession(headers=headers.ANALYTICS_HEADERS, 
+                               impersonate=impersonate, 
+                               verify=False, 
+                               proxies=self.proxy)
+        session.headers['Content'] = content
+        return session
 
+    async def create_ws_session(self, impersonate):
+        ws_key = helpers.generate_sec_websocket_key()
+        session = AsyncSession(headers=headers.WS_HEADERS,
+                               impersonate=impersonate,
+                               verify=False,
+                               proxies=self.proxy)
+        session.headers['Sec-Websocket-Key'] = ws_key
+        return session
+    
     async def main(self):
         await asyncio.sleep(random.randint(*config.ACC_DELAY))
         while True:
             try:
-                self.session = await self.create_session()
+                impersonate = random.choice(config.FINGERPRINTS)
+                self.session = await self.create_session(impersonate)
+                self.analytics_session = await self.create_analytics_session(impersonate)
+                self.ws_session = await self.create_ws_session(impersonate)
                 try:
                     login = await self.login()
                     if login is False:
@@ -89,7 +102,7 @@ class NotPixel:
                 template_info = await self.my() # информация о выбранном шаблоне
                 if template_info == {}: # если шаблон не установлен , происходит его установка
                     await self.event({"n": "pageview", "u": "https://app.notpx.app/template", "d": "notpx.app",
-                                      "r": "https://web.telegram.org/"})
+                                      "r": None})
 
                     templates_1 = await self.list(0)
                     await asyncio.sleep(random.uniform(2, 4))
@@ -159,7 +172,7 @@ class NotPixel:
 
                 await asyncio.sleep(random.uniform(*config.MINI_SLEEP))
                 if await self.event({"n": "pageview", "u": "https://app.notpx.app/claiming", "d": "notpx.app",
-                                     "r": "https://web.telegram.org/"}):
+                                     "r": None}):
 
                     await asyncio.sleep(random.uniform(3, 5))
                     await self.farming_claim()
@@ -170,6 +183,7 @@ class NotPixel:
                             user_tasks = status["tasks"]
                             for task in config.tasks:
                                 if task not in user_tasks.keys():
+                                    await self.analytics_event('app-hide')
                                     if task.startswith("x:"):
                                         await asyncio.sleep(random.uniform(*config.TASK_SLEEP))
                                         await self.do_task(task.split(":")[1], "x")
@@ -195,7 +209,7 @@ class NotPixel:
                         await self.upgrade_skills()
 
                     await self.event({"n": "pageview", "u": "https://app.notpx.app/", "d": "notpx.app",
-                                      "r": "https://web.telegram.org/"})
+                                      "r": None})
 
                 status = await self.status()
                 if status:
@@ -203,6 +217,7 @@ class NotPixel:
                             status["reChargeSpeed"] // 1000) + random.randint(100, 600)
                     logger.info(f"main | Thread {self.thread} | {self.name} | КРУГ ОКОНЧЕН! Ожидание: {sleep_time}")
                     await self.session.close()
+                    await self.ws_task.cancel()
                     await asyncio.sleep(sleep_time)
                 else:
                     raise Exception("Неудалось продолжить играть")
@@ -312,6 +327,20 @@ class NotPixel:
         if response.status_code == 202:
             return True
         return False
+    
+    async def analytics_event(self, event_name: str):
+        timestamp = int(time() * 1000)
+        event_data = {
+            "event_name": event_name,
+            "session_id": self.session_id,
+            "user_id": self.user_info.id,
+            "app_name": "NotPixel",
+            "is_premium": self.user_info.is_premium,
+            "platform": "android",
+            "locale": 'ru',
+            "client_timestamp": timestamp
+        }
+        await self.analytics_session.post("https://tganalytics.xyz/events", json=event_data)
 
     async def my(self):
         response = await self.session.get("https://notpx.app/api/v1/image/template/my")
@@ -345,7 +374,7 @@ class NotPixel:
         if response.status_code == 200:
             return response.json()
         return False
-
+    
     async def get_tg_web_data(self):
         async with self.client:
             try:
@@ -359,6 +388,7 @@ class NotPixel:
 
                 self.auth_url = web_view.url
                 self.user_info = await self.client.get_me()
+                self.session_id = helpers.generate_session_id()
             except Exception as err:
                 logger.error(f"main | Thread {self.thread} | {self.name} | {err}")
                 if 'USER_DEACTIVATED_BAN' in str(err):
@@ -372,14 +402,32 @@ class NotPixel:
             tg_web_data = await self.get_tg_web_data()
             if tg_web_data is False:
                 return False
-
             self.token = f"initData {tg_web_data}"
             self.session.headers['authorization'] = self.token
             await self.event({"n": "pageview", "u": self.auth_url, "d": "notpx.app",
-                              "r": "https://web.telegram.org/"})
-            if not await self.me():
+                              "r": None})
+            self.app_user = await self.me()
+            if not self.app_user:
                 return False
+            await self.analytics_event('app-init')
+            self.ws_task = asyncio.create_task(self.receive_ws())
             return True
         except Exception as err:
             logger.error(f"login | Thread {self.thread} | {self.name} | {err}")
             return False
+
+    async def receive_ws(self):
+        while True:
+            ws_token = self.app_user['websocketToken']
+            socket = await self.ws_session.ws_connect('wss://notpx.app/connection/websocket')
+            auth_request = b'\xcb\x01\x08\x01"\xc6\x01\n\xbf\x01' + ws_token.encode('utf-8') + b'"\x02js'
+            await asyncio.to_thread(socket.send, auth_request)
+            while True:
+                try:
+                    msg, _ = await asyncio.to_thread(socket.recv)
+                    # ping
+                    if msg == b"\x00":
+                        # pong
+                        await asyncio.to_thread(socket.send, b"\x00")
+                except:
+                    break

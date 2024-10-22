@@ -34,7 +34,7 @@ DO_UPGRADES = True
 DO_TASKS = True
 
 tasks = {"x:notcoin", "x:notpixel", "channel:notcoin", "channel:notpixel_channel", "makePixelAvatar", "paint20pixels",
-         "jettonTask"}
+         "jettonTask", "boinkTask"}
 
 
 
