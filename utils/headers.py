@@ -35,6 +35,20 @@ ANALYTICS_HEADERS = {
     'Priority': 'u=1, i'
 }
 
+WS_HEADERS = {
+    "Connection": "Upgrade",
+    "Pragma": "no-cache",
+    "Cache-Control": "no-cache",
+    "User-Agent": "Mozilla/5.0 (Linux; Android 9; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36 Telegram-Android/11.2.3 (Nubia NX709J; Android 9; SDK 28; AVERAGE)",
+    "Upgrade": "websocket",
+    "Origin": "https://app.notpx.app",
+    "Sec-Websocket-Version": "13",
+    "Accept-Encoding": "gzip, deflate",
+    "Accept-Language": "ru,ru-RU;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Sec-Websocket-Key": "Iq5eKnukohFh28tPq7Mtug==",
+    "Sec-Websocket-Protocol": "centrifuge-protobuf"
+}
+
 CONTENT_DATA: list[str] = [
     '123,34,120,34,58,50,49,55,46,57,56,48,54,52,51,52,57,57,49,50,57,54,44,34,121,34,58,51,50,50,48,46,56,49,50,52,57,51,51,57,52,53,53,55,52,125',
     '123,34,120,34,58,57,49,49,46,55,56,49,57,48,56,51,56,51,49,53,52,56,44,34,121,34,58,50,55,53,51,50,46,49,57,57,50,57,56,57,50,53,54,52,51,125'
