@@ -10,7 +10,8 @@ from io import BytesIO
 from time import time
 import asyncio
 import random
-
+import os
+import headers
 
 class NotPixel:
 
@@ -50,29 +51,29 @@ class NotPixel:
 
         self.auth_token = ""
 
-    async def create_session(self):
-        headers = {
-            'accept': 'application/json, text/plain, */*',
-            'accept-encoding': 'gzip, deflate, br, zstd',
-            'accept-language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-            'origin': 'https://app.notpx.app',
-            'priority': 'u=1, i',
-            'referer': 'https://app.notpx.app/',
-            'sec-ch-ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
-            'sec-ch-ua-mobile': '?1',
-            'sec-ch-ua-platform': '"Android"',
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-site',
-        }
-        impersonate = random.choice(config.FINGERPRINTS)
-        return AsyncSession(headers=headers, impersonate=impersonate, verify=False, proxies=self.proxy)
+    async def create_session(self, impersonate):
+        return AsyncSession(headers=headers.APP_HEADERS, 
+                            impersonate=impersonate, 
+                            verify=False, 
+                            proxies=self.proxy)
+    
+    async def create_analytics_session(self, impersonate):
+        content = random.choice(headers.CONTENT_DATA)
+        session = AsyncSession(headers=headers.ANALYTICS_HEADERS, 
+                               impersonate=impersonate, 
+                               verify=False, 
+                               proxies=self.proxy)
+        session.headers['Content'] = content
+        return session
+
 
     async def main(self):
         await asyncio.sleep(random.randint(*config.ACC_DELAY))
         while True:
             try:
-                self.session = await self.create_session()
+                impersonate = random.choice(config.FINGERPRINTS)
+                self.session = await self.create_session(impersonate)
+                self.analytics_session = await self.create_analytics_session(impersonate)
                 try:
                     login = await self.login()
                     if login is False:
@@ -170,6 +171,7 @@ class NotPixel:
                             user_tasks = status["tasks"]
                             for task in config.tasks:
                                 if task not in user_tasks.keys():
+                                    await self.analytics_event('app-hide')
                                     if task.startswith("x:"):
                                         await asyncio.sleep(random.uniform(*config.TASK_SLEEP))
                                         await self.do_task(task.split(":")[1], "x")
@@ -312,6 +314,20 @@ class NotPixel:
         if response.status_code == 202:
             return True
         return False
+    
+    async def analytics_event(self, event_name: str):
+        timestamp = int(time() * 1000)
+        event_data = {
+            "event_name": event_name,
+            "session_id": self.session_id,
+            "user_id": self.user_info.id,
+            "app_name": "NotPixel",
+            "is_premium": self.user_info.is_premium,
+            "platform": "android",
+            "locale": 'ru',
+            "client_timestamp": timestamp
+        }
+        await self.analytics_session.post("https://tganalytics.xyz/events", json=event_data)
 
     async def my(self):
         response = await self.session.get("https://notpx.app/api/v1/image/template/my")
@@ -346,6 +362,20 @@ class NotPixel:
             return response.json()
         return False
 
+    def generate_random_string(self, length=8):
+        characters = 'abcdef0123456789'
+        random_string = ''
+        for _ in range(length):
+            random_index = int((len(characters) * int.from_bytes(os.urandom(1), 'big')) / 256)
+            random_string += characters[random_index]
+        return random_string
+
+    def generate_session_id(self) -> str:
+        session_id = '-'.join([
+            self.generate_random_string(8), self.generate_random_string(4), '4' + self.generate_random_string(3),
+            self.generate_random_string(4), self.generate_random_string(12)])
+        return session_id
+
     async def get_tg_web_data(self):
         async with self.client:
             try:
@@ -359,6 +389,7 @@ class NotPixel:
 
                 self.auth_url = web_view.url
                 self.user_info = await self.client.get_me()
+                self.session_id = self.generate_session_id()
             except Exception as err:
                 logger.error(f"main | Thread {self.thread} | {self.name} | {err}")
                 if 'USER_DEACTIVATED_BAN' in str(err):
@@ -372,13 +403,13 @@ class NotPixel:
             tg_web_data = await self.get_tg_web_data()
             if tg_web_data is False:
                 return False
-
             self.token = f"initData {tg_web_data}"
             self.session.headers['authorization'] = self.token
             await self.event({"n": "pageview", "u": self.auth_url, "d": "notpx.app",
-                              "r": "https://web.telegram.org/"})
+                              "r": None})
             if not await self.me():
                 return False
+            await self.analytics_event('app-init')
             return True
         except Exception as err:
             logger.error(f"login | Thread {self.thread} | {self.name} | {err}")
