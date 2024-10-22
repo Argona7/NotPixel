@@ -217,7 +217,7 @@ class NotPixel:
                             status["reChargeSpeed"] // 1000) + random.randint(100, 600)
                     logger.info(f"main | Thread {self.thread} | {self.name} | КРУГ ОКОНЧЕН! Ожидание: {sleep_time}")
                     await self.session.close()
-                    await self.ws_task.cancel()
+                    self.ws_task.cancel()
                     await asyncio.sleep(sleep_time)
                 else:
                     raise Exception("Неудалось продолжить играть")
@@ -226,6 +226,7 @@ class NotPixel:
                 logger.error(f"main | Thread {self.thread} | {self.name} | {err}")
                 await asyncio.sleep(random.uniform(300, 450))
                 await self.session.close()
+                self.ws_task.cancel()
                 continue
 
     async def paint(self, pixel_id: int, color: str):
