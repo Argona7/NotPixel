@@ -5,7 +5,21 @@
 - Python 3.11 (you can install it [here](https://www.python.org/downloads/release/python-3110/))
 - Telegram API_ID and API_HASH (you can get them [here](https://my.telegram.org/auth?to=apps))
 
-
+## Features  
+|                      Feature                               |   Supported  |
+|:----------------------------------------------------------:|:------------:|
+|                   Multithreading                           |     ✅      |
+|              Proxy binding to session                      |     ✅      |
+|           Support for pyrogram .session                    |     ✅      |
+| Auto-register your account with your referral code         |     ✅      |
+|                Template drawing                            |     ✅      |
+|                    Auto tasks                              |     ✅      |
+|                   Auto upgrade                             |     ✅      |
+|              Auto claiming of reward                       |     ✅      |
+|         Real browsers fingerprint emulation                |     ✅      |
+|           Sending analytics and events                     |     ✅      |
+|        Update map throught websocket in real time          |     ✅      |
+|               Night time sleeping                          |     🛠️      |
 
 1. Install the required dependencies:
    ```bash
@@ -39,12 +53,8 @@
    ```
    And don't forget set proxy type in `config.py`
    ```python
-   PROXY_TYPE = "socks5" # or http
+   PROXY_TYPE = "http"
    ```
-
-5. IMPORTANT Create a `sessions` folder
-
-
 
 ## Usage
 
@@ -62,13 +72,10 @@
 
 
 ---
-DONATIONS 
+SUPPORT
 ```txt
-ton   : UQDCSg-HwdwKA4OES8q6w35s4tPx_5k1QczMc17gAsTNLAhn
-
-evm networks : 0x13FFbeB41Ae9532e7F7ce32616726728ead3E859
-
+Please support me by using my refferal link https://t.me/notpixel/app?startapp=f1411487059_s704279
 ```
 
-contacts : [@Argona4](https://t.me/Argona4)
+contacts : [@yungd1plomat](https://t.me/yungd1plomat)
 

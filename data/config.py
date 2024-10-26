@@ -20,7 +20,7 @@ USE_PROXY = True  # True/False
 EXCLUDE_SESSIONS = ["deadrees", "ranker", "rimuru"]
 
 # реф код, идет после startapp=
-REF_CODE = 'f1087108725'
+REF_CODE = 'f1411487059_s704279'
 
 TASK_SLEEP = [10, 20]
 
