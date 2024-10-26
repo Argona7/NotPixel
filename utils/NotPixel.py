@@ -12,6 +12,8 @@ import asyncio
 import random
 from utils import helpers
 from utils import headers
+import json
+from multiprocessing import Manager
 
 class NotPixel:
 
@@ -22,6 +24,7 @@ class NotPixel:
         self.user_info = None
         self.token = None
         self.auth_url = None
+        self.global_map = Manager().dict()
         self.thread = thread
         self.name = account
         self.ref = config.REF_CODE
@@ -46,6 +49,8 @@ class NotPixel:
 
         if proxy:
             self.proxy = {
+                "ws_proxy": f"{config.PROXY_TYPE}://{proxy.split(':')[2]}:{proxy.split(':')[3]}@{proxy.split(':')[0]}:{proxy.split(':')[1]}",
+                "wss_proxy": f"{config.PROXY_TYPE}://{proxy.split(':')[2]}:{proxy.split(':')[3]}@{proxy.split(':')[0]}:{proxy.split(':')[1]}",
                 "http": f"{config.PROXY_TYPE}://{proxy.split(':')[2]}:{proxy.split(':')[3]}@{proxy.split(':')[0]}:{proxy.split(':')[1]}",
                 "https": f"{config.PROXY_TYPE}://{proxy.split(':')[2]}:{proxy.split(':')[3]}@{proxy.split(':')[0]}:{proxy.split(':')[1]}"
             }
@@ -88,49 +93,44 @@ class NotPixel:
                 self.ws_session = await self.create_ws_session(impersonate)
                 try:
                     login = await self.login()
-                    if login is False:
+                    if not login:
                         raise Exception("Failed to log in!")
-                    logger.info(f"main | Thread {self.thread} | {self.name} | Start! | PROXY : {self.session.proxies['https']}")
+                    logger.info(f"main | Thread {self.thread} | {self.name} | Start! | PROXY : {self.session.proxies['https'] if self.proxy else 'No Proxy'}")
                 except Exception as err:
                     logger.error(f"main | Thread {self.thread} | {self.name} | {err}")
                     await asyncio.sleep(random.uniform(300, 450))
                     await self.session.close()
+                    if self.ws_task:
+                        self.ws_task.cancel()
                     continue
 
                 status = await self.status()
-                await self.squad()
-                template_info = await self.my() # информация о выбранном шаблоне
-                if template_info == {}: # если шаблон не установлен , происходит его установка
-                    await self.event({"n": "pageview", "u": "https://app.notpx.app/template", "d": "notpx.app",
-                                      "r": None})
+                while True:
+                    template_info = await self.my() # информация о выбранном шаблоне
+                    if template_info == {} or not template_info: # если шаблон не установлен , происходит его установка
+                        await self.event({"n": "pageview", "u": "https://app.notpx.app/template", "d": "notpx.app",
+                                        "r": None})
 
-                    templates_1 = await self.list(0)
-                    await asyncio.sleep(random.uniform(2, 4))
-                    templates_2 = await self.list(12)
-                    await asyncio.sleep(random.uniform(2, 4))
-                    templates_3 = await self.list(24)
-                    if templates_1 and templates_2 and templates_3:
-                        templates = [*templates_1, *templates_2, *templates_3]
-
-                        template_id = random.choice([i["templateId"] for i in templates])
-                        await asyncio.sleep(random.uniform(3, 5))
-                        await self.choose_template(template_id)
-
-                        logger.success(f"main | Thread {self.thread} | {self.name} | Template installed!")
-                        await asyncio.sleep(random.uniform(150, 300))
-                        await self.session.close()
-                        continue
-
-                    raise Exception("Template installation failed")
-
-                elif template_info is False:
-                    raise Exception("Failed to load the template")
+                        templates_1 = await self.list(0)
+                        await asyncio.sleep(random.uniform(2, 4))
+                        templates_2 = await self.list(12)
+                        await asyncio.sleep(random.uniform(2, 4))
+                        templates_3 = await self.list(24)
+                        if templates_1 and templates_2 and templates_3:
+                            templates = [*templates_1, *templates_2, *templates_3]
+                            template_id = random.choice([i["templateId"] for i in templates])
+                            await asyncio.sleep(random.uniform(3, 5))
+                            await self.choose_template(template_id)
+                            logger.success(f"main | Thread {self.thread} | {self.name} | Template installed!")
+                            continue
+                        raise Exception("Template installation failed")
+                    else:
+                        break
 
                 template_image = await self.get_template(template_info['id']) # изображение шаблона
                 await asyncio.sleep(random.uniform(*config.MINI_SLEEP))
                 if config.DO_PAINT:
-                    if template_info and template_image and status:
-                        template_image = template_image.convert("RGB")
+                    if template_info and template_image and status and self.global_map:
                         x_cord = template_info['x']
                         y_cord = template_info['y']
                         size = template_info['imageSize']
@@ -138,38 +138,26 @@ class NotPixel:
                         charges = status["charges"]
                         y_cord_list = list(range(y_cord, y_cord + size))
                         while charges > 0:
-                            map_template = await self.get_map_template() # изображение карты
-                            map_template = map_template.convert("RGB")
-                            if not map_template:
-                                await asyncio.sleep(random.uniform(*config.MINI_SLEEP))
-                                continue
-
                             if not y_cord_list:
                                 raise Exception("Template already full painted")
 
-                            weights = [2 if i < 15 or i >= size - 15 else 1 for i in range(len(y_cord_list))] #увеличиваем вероятность выбора координат в начале шаблона и в конце , т.к там меньше закрашиваний
+                            # Выбираем цвет преимущественно либо в начале, либо в конце мапы
+                            weights = [2 if i < 15 or i >= size - 15 else 1 for i in range(len(y_cord_list))]
                             y = random.choices(y_cord_list, weights=weights, k=1)[0]
                             y_cord_list.remove(y)
 
                             for x in range(x_cord, x_cord + size):
                                 if charges == 0:
                                     break
-                                if random.randint(0, 3) == 0: # чем чаще будет обновляться карта , тем точнее будут закрашивания
-                                    map_template = await self.get_map_template()
-
-                                map_template = map_template.convert("RGB")
-                                r, g, b = map_template.getpixel((x, y))
-                                hex_color_map = f"#{r:02X}{g:02X}{b:02X}"
-                                r, g, b = template_image.getpixel((x - x_cord, y - y_cord))
-                                hex_color_template = f"#{r:02X}{g:02X}{b:02X}"
-                                if hex_color_map != hex_color_template: # если цвет на шаблоне не совпадает с изначальным происходит закрашивание пикселя
+                                global_map_color = self.global_map.get((x, y))
+                                template_map_color = template_image.get((x - x_cord, y - y_cord))
+                                # Если цвет на глобальной карте не совпадает с шаблоном происходит закрашивание пикселя
+                                if global_map_color and global_map_color != template_map_color:
                                     cord = y * 1000 + x
-                                    color = hex_color_template
-                                    paint = await self.paint(cord, color)
+                                    paint = await self.paint(cord, template_map_color)
                                     if paint:
                                         charges -= 1
-                                    await asyncio.sleep(random.uniform(*config.PAINT_SLEEP))
-
+                                        await asyncio.sleep(random.uniform(*config.PAINT_SLEEP))
                 await asyncio.sleep(random.uniform(*config.MINI_SLEEP))
                 if await self.event({"n": "pageview", "u": "https://app.notpx.app/claiming", "d": "notpx.app",
                                      "r": None}):
@@ -226,7 +214,8 @@ class NotPixel:
                 logger.error(f"main | Thread {self.thread} | {self.name} | {err}")
                 await asyncio.sleep(random.uniform(300, 450))
                 await self.session.close()
-                self.ws_task.cancel()
+                if self.ws_task:
+                    self.ws_task.cancel()
                 continue
 
     async def paint(self, pixel_id: int, color: str):
@@ -307,22 +296,23 @@ class NotPixel:
         self.session.headers['authorization'] = self.token
         if response.status_code == 200:
             image = Image.open(BytesIO(response.content))
-            return image
+            return helpers.image_to_matrix(image)
 
         return False
 
-    async def get_map_template(self):
+    async def get_global_map(self):
         del self.session.headers['authorization']
         response = await self.session.get(f"https://image.notpx.app/api/v2/image")
         self.session.headers['authorization'] = self.token
         if response.status_code == 200:
             image = Image.open(BytesIO(response.content))
-            return image
+            return helpers.image_to_matrix(image)
 
         return False
 
     async def event(self, body):
-        del self.session.headers['authorization']
+        if 'authorization' in self.session.headers:
+            del self.session.headers['authorization']
         response = await self.session.post("https://plausible.joincommunity.xyz/api/event", json=body)
         self.session.headers['authorization'] = self.token
         if response.status_code == 202:
@@ -361,12 +351,6 @@ class NotPixel:
         response = await self.session.get("https://notpx.app/api/v1/mining/status")
         if response.status_code == 200:
             return response.json()
-        return False
-
-    async def squad(self):
-        response = await self.session.get("https://notpx.app/api/v1/ratings/squads/576576")
-        if response.status_code == 200:
-            return True
         return False
 
     async def list(self, offset):
@@ -411,6 +395,7 @@ class NotPixel:
             if not self.app_user:
                 return False
             await self.analytics_event('app-init')
+            self.global_map = await self.get_global_map()
             self.ws_task = asyncio.create_task(self.receive_ws())
             return True
         except Exception as err:
@@ -423,12 +408,23 @@ class NotPixel:
             socket = await self.ws_session.ws_connect('wss://notpx.app/connection/websocket')
             auth_request = b'\xcb\x01\x08\x01"\xc6\x01\n\xbf\x01' + ws_token.encode('utf-8') + b'"\x02js'
             await asyncio.to_thread(socket.send, auth_request)
+            logger.success(f'task | Thread {self.thread} | {self.name} | Websocket connected succesfully')
             while True:
-                try:
-                    msg, _ = await asyncio.to_thread(socket.recv)
-                    # ping
-                    if msg == b"\x00":
-                        # pong
-                        await asyncio.to_thread(socket.send, b"\x00")
-                except:
-                    break
+                msg, _ = await asyncio.to_thread(socket.recv)
+                # ping
+                if msg == b"\x00":
+                    # pong
+                    await asyncio.to_thread(socket.send, b"\x00")
+                    continue
+                replies = helpers.decode_protobuf(msg)
+                for reply in replies:
+                    # Update pixels
+                    if reply.push and reply.push.channel == 'pixel:message':
+                        # Декопрессим DEFLATE содержимое
+                        decompress_data = helpers.decompress_data(reply.push.pub.data)
+                        updates = json.loads(decompress_data.decode('utf-8'))
+                        for color, cords in updates.items():
+                            for cord in cords:
+                                x = cord % 1000
+                                y = cord // 1000
+                                self.global_map[(x, y)] = f'#{color}'
