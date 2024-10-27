@@ -10,7 +10,11 @@ from pyrogram.raw.types import InputBotAppShortName
 from PIL import Image
 from io import BytesIO
 from time import time
+from pathlib import Path
 
+import os
+import json
+import aiofiles
 import aiohttp
 import asyncio
 import random
