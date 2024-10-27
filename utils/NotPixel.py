@@ -19,6 +19,9 @@ import random
 class NotPixel:
 
     def __init__(self, thread: int, account: str, proxy=None):
+        self.session = None
+        self.UserAgent = None
+        self.device = 'android'
         self.user_info = None
         self.token = None
         self.auth_url = None
@@ -61,15 +64,57 @@ class NotPixel:
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-site',
-            'user-agent': UserAgent(os='android').random
+            'user-agent': self.UserAgent
         }
 
         return aiohttp.ClientSession(headers=headers, trust_env=True, connector=connector)
+
+    async def set_useragent(self):
+        try:
+            file_path = os.path.join(os.path.join(Path(__file__).parent.parent, "data"), "UserAgent.json")
+
+            if not os.path.exists(file_path):
+                data = {self.name: UserAgent(os=self.device).random}
+                async with aiofiles.open(file_path, 'w', encoding="utf-8") as file:
+                    await file.write(json.dumps(data, ensure_ascii=False, indent=4))
+
+                self.UserAgent = data[self.name]
+                return True
+
+            else:
+                try:
+                    async with aiofiles.open(file_path, 'r', encoding='utf-8') as file:
+                        content = await file.read()
+                        data = json.loads(content)
+
+                    if self.name in data:
+                        self.UserAgent = data[self.name]
+                        return True
+
+                    else:
+                        self.UserAgent = UserAgent(os=self.device).random
+                        data[self.name] = self.UserAgent
+
+                        async with aiofiles.open(file_path, 'w', encoding='utf-8') as file:
+                            await file.write(json.dumps(data, ensure_ascii=False, indent=4))
+
+                        return True
+                except json.decoder.JSONDecodeError:
+                    logger.error(f"useragent | Thread {self.thread} | {self.name} | syntax error in UserAgents json file!")
+                    return False
+
+        except Exception as err:
+            logger.error(f"useragent | Thread {self.thread} | {self.name} | {err}")
+            return False
 
     async def main(self):
         await asyncio.sleep(random.randint(*config.ACC_DELAY))
         while True:
             try:
+                useragent = await self.set_useragent()
+                if not useragent:
+                    logger.error(f"UserAgent | Thread {self.thread} | {self.name} | Invalid User Agent!")
+                    return 0
                 self.session = await self.create_session()
                 try:
                     login = await self.login()
@@ -352,7 +397,7 @@ class NotPixel:
                 web_view = await self.client.invoke(RequestAppWebView(
                     peer=await self.client.resolve_peer('notpixel'),
                     app=InputBotAppShortName(bot_id=await self.client.resolve_peer('notpixel'), short_name="app"),
-                    platform='android',
+                    platform=self.device,
                     write_allowed=True,
                     start_param=self.ref
                 ))
