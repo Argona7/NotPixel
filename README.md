@@ -70,5 +70,4 @@ evm networks : 0x13FFbeB41Ae9532e7F7ce32616726728ead3E859
 
 ```
 
-contacts : [@Argona4](https://t.me/Argona4)
-
+[![Telegram Bage](https://img.shields.io/badge/Telegram-%2329edff)](https://t.me/ArgonaResearch)  [![Twitter Bage](https://img.shields.io/badge/Twitter-%23000000)](https://x.com/HnkYqDto1P9UDvo)
