@@ -33,6 +33,8 @@ DO_PAINT = True
 DO_UPGRADES = True
 DO_TASKS = True
 
+USE_RANDOM_TEMPLATE = True
+
 tasks = {"x:notcoin", "x:notpixel", "channel:notcoin", "channel:notpixel_channel", "makePixelAvatar", "paint20pixels",
          "jettonTask", "boinkTask", "pixelInNickname"}
 

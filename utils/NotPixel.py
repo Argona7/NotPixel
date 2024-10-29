@@ -104,9 +104,10 @@ class NotPixel:
                         self.ws_task.cancel()
                     continue
                 status = await self.status()
+                random_template_chosen = False
                 while True:
-                    template_info = await self.my() # информация о выбранном шаблоне
-                    if template_info == {} or not template_info: # если шаблон не установлен , происходит его установка
+                    template_info = await self.my()
+                    if template_info == {} or not template_info or (config.USE_RANDOM_TEMPLATE and not random_template_chosen):
                         await self.event({"n": "pageview", "u": "https://app.notpx.app/template", "d": "notpx.app",
                                         "r": None})
 
@@ -121,6 +122,7 @@ class NotPixel:
                             await asyncio.sleep(random.uniform(3, 5))
                             await self.choose_template(template_id)
                             logger.success(f"main | Thread {self.thread} | {self.name} | Template installed!")
+                            random_template_chosen = True
                             continue
                         raise Exception("Template installation failed")
                     else:
