@@ -46,7 +46,8 @@ WS_HEADERS = {
     "Accept-Encoding": "gzip, deflate",
     "Accept-Language": "ru,ru-RU;q=0.9,en-US;q=0.8,en;q=0.7",
     "Sec-Websocket-Key": "Iq5eKnukohFh28tPq7Mtug==",
-    "Sec-Websocket-Protocol": "centrifuge-protobuf"
+    "Sec-Websocket-Protocol": "centrifuge-protobuf",
+    "Sec-Websocket-Extensions": "permessage-deflate; client_max_window_bits"
 }
 
 CONTENT_DATA: list[str] = [

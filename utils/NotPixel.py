@@ -408,7 +408,7 @@ class NotPixel:
             socket = await self.ws_session.ws_connect('wss://notpx.app/connection/websocket')
             auth_request = b'\xcb\x01\x08\x01"\xc6\x01\n\xbf\x01' + ws_token.encode('utf-8') + b'"\x02js'
             await asyncio.to_thread(socket.send, auth_request)
-            logger.success(f'task | Thread {self.thread} | {self.name} | Websocket connected succesfully')
+            logger.success(f'WS | Thread {self.thread} | {self.name} | Websocket connected succesfully')
             while True:
                 msg, _ = await asyncio.to_thread(socket.recv)
                 # ping
