@@ -103,7 +103,6 @@ class NotPixel:
                     if self.ws_task:
                         self.ws_task.cancel()
                     continue
-
                 status = await self.status()
                 while True:
                     template_info = await self.my() # информация о выбранном шаблоне
@@ -141,9 +140,8 @@ class NotPixel:
                             if not y_cord_list:
                                 raise Exception("Template already full painted")
 
-                            # Выбираем цвет преимущественно либо в начале, либо в конце мапы
-                            weights = [2 if i < 15 or i >= size - 15 else 1 for i in range(len(y_cord_list))]
-                            y = random.choices(y_cord_list, weights=weights, k=1)[0]
+                            # Предыдущая реализация хуйня, выбираем место рандомно
+                            y = random.choices(y_cord_list)[0]
                             y_cord_list.remove(y)
 
                             for x in range(x_cord, x_cord + size):
@@ -181,6 +179,11 @@ class NotPixel:
                                         await self.client.disconnect()
                                         await asyncio.sleep(random.uniform(*config.TASK_SLEEP))
                                         await self.do_task(task.split(":")[1], "channel")
+                                    elif task == "pixelInNickname":
+                                        if not self.user_info.first_name.contains('▪️'):
+                                            async with self.client:
+                                                await self.client.update_profile(first_name = self.user_info.first_name + '▪️')
+                                        await self.do_task(task)
                                     else:
                                         await asyncio.sleep(random.uniform(*config.TASK_SLEEP))
                                         await self.do_task(task)
