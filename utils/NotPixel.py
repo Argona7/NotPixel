@@ -1,7 +1,6 @@
 from urllib.parse import unquote
-from fake_useragent import UserAgent
 from pyrogram import Client
-from data import config
+from NotPixel.data import config
 from utils.core import logger
 
 from aiohttp_socks import ProxyConnector
@@ -25,7 +24,7 @@ class NotPixel:
     def __init__(self, thread: int, account: str, proxy=None):
         self.session = None
         self.UserAgent = None
-        self.device = 'android'
+        self.device = 'Android'
         self.user_info = None
         self.token = None
         self.auth_url = None
@@ -54,20 +53,23 @@ class NotPixel:
 
     async def create_session(self):
         connector = ProxyConnector.from_url(self.proxy) if self.proxy else aiohttp.TCPConnector(verify_ssl=False)
-
+        browser_version = self.UserAgent.split("Chrome/")[1].split(".")[0]
         headers = {
             'accept': 'application/json, text/plain, */*',
             'accept-encoding': 'gzip, deflate, br, zstd',
+            'content-type': 'text/plain',
+            'pragma':'no-cache',
+            'cache-control':'no-cache',
             'accept-language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
             'origin': 'https://app.notpx.app',
             'priority': 'u=1, i',
             'referer': 'https://app.notpx.app/',
-            'sec-ch-ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+            'sec-ch-ua': f'"Chromium";v="{browser_version}", "Not;A=Brand";v="24", "Google Chrome";v="{browser_version}"',
             'sec-ch-ua-mobile': '?1',
-            'sec-ch-ua-platform': '"Android"',
+            'sec-ch-ua-platform': f'"{self.device}"',
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-site',
+            'sec-fetch-site': 'cross-site',
             'user-agent': self.UserAgent
         }
 
@@ -75,10 +77,19 @@ class NotPixel:
 
     async def set_useragent(self):
         try:
-            file_path = os.path.join(os.path.join(Path(__file__).parent.parent, "data"), "UserAgent.json")
+            file_path = os.path.join(os.path.join(Path(__file__).parent.parent, "data"), "UserAgents.json")
+            UserAgent_path = os.path.join(Path(__file__).parent.parent.parent, f"UserAgents{self.device}.json")
+
+            if os.path.exists(UserAgent_path):
+                async with aiofiles.open(UserAgent_path, 'r', encoding='utf-8') as file:
+                    content = await file.read()
+                    UserAgent_list = json.loads(content)
+
+            else:
+                raise Exception(f"UserAgent{self.device} not found!")
 
             if not os.path.exists(file_path):
-                data = {self.name: UserAgent(os=self.device).random}
+                data = {self.name: random.choice(UserAgent_list)}
                 async with aiofiles.open(file_path, 'w', encoding="utf-8") as file:
                     await file.write(json.dumps(data, ensure_ascii=False, indent=4))
 
@@ -96,7 +107,7 @@ class NotPixel:
                         return True
 
                     else:
-                        self.UserAgent = UserAgent(os=self.device).random
+                        self.UserAgent = random.choice(UserAgent_list)
                         data[self.name] = self.UserAgent
 
                         async with aiofiles.open(file_path, 'w', encoding='utf-8') as file:
@@ -104,7 +115,8 @@ class NotPixel:
 
                         return True
                 except json.decoder.JSONDecodeError:
-                    logger.error(f"useragent | Thread {self.thread} | {self.name} | syntax error in UserAgents json file!")
+                    logger.error(
+                        f"useragent | Thread {self.thread} | {self.name} | syntax error in UserAgents json file!")
                     return False
 
         except Exception as err:
@@ -133,18 +145,14 @@ class NotPixel:
 
                 status = await self.status()
                 await self.squad()
-                template_info = await self.my() # информация о выбранном шаблоне
-                if template_info == {}: # если шаблон не установлен , происходит его установка
+                template_info = await self.my()  # информация о выбранном шаблоне
+                if template_info == {}:  # если шаблон не установлен , происходит его установка
                     await self.event({"n": "pageview", "u": "https://app.notpx.app/template", "d": "notpx.app",
                                       "r": "https://web.telegram.org/"})
 
                     templates_1 = await self.list(0)
-                    await asyncio.sleep(random.uniform(2, 4))
-                    templates_2 = await self.list(12)
-                    await asyncio.sleep(random.uniform(2, 4))
-                    templates_3 = await self.list(24)
-                    if templates_1 and templates_2 and templates_3:
-                        templates = [*templates_1, *templates_2, *templates_3]
+                    if templates_1:
+                        templates = [*templates_1]
 
                         template_id = random.choice([i["templateId"] for i in templates])
                         await asyncio.sleep(random.uniform(3, 5))
@@ -160,7 +168,7 @@ class NotPixel:
                 elif template_info is False:
                     raise Exception("Failed to load the template")
 
-                template_image = await self.get_template(template_info['id']) # изображение шаблона
+                template_image = await self.get_template(template_info['id'])  # изображение шаблона
                 await asyncio.sleep(random.uniform(*config.MINI_SLEEP))
                 if config.DO_PAINT:
                     if template_info and template_image and status:
@@ -172,31 +180,37 @@ class NotPixel:
                         charges = status["charges"]
                         y_cord_list = list(range(y_cord, y_cord + size))
                         while charges > 0:
-                            map_template = await self.get_map_template() # изображение карты
+                            map_template = await self.get_map_template()  # изображение карты
                             map_template = map_template.convert("RGB")
                             if not map_template:
                                 await asyncio.sleep(random.uniform(*config.MINI_SLEEP))
                                 continue
 
                             if not y_cord_list:
-                                raise Exception("Template already full painted")
+                                raise Exception(
+                                    f"Template already full painted: x_cord {x_cord} y_cord {y_cord}  size {size}")
 
-                            weights = [2 if i < 15 or i >= size - 15 else 1 for i in range(len(y_cord_list))] #увеличиваем вероятность выбора координат в начале шаблона и в конце , т.к там меньше закрашиваний
+                            weights = [2 if i < 15 or i >= size - 15 else 1 for i in range(
+                                len(y_cord_list))]  # увеличиваем вероятность выбора координат в начале шаблона и в конце , т.к там меньше закрашиваний
                             y = random.choices(y_cord_list, weights=weights, k=1)[0]
                             y_cord_list.remove(y)
 
                             for x in range(x_cord, x_cord + size):
                                 if charges == 0:
                                     break
-                                if random.randint(0, 3) == 0: # чем чаще будет обновляться карта , тем точнее будут закрашивания
-                                    map_template = await self.get_map_template()
+                                if random.randint(0,
+                                                  3) == 0:  # чем чаще будет обновляться карта , тем точнее будут закрашивания
+                                    map_template_1 = await self.get_map_template()
+
+                                    if map_template_1:
+                                        map_template = map_template_1
 
                                 map_template = map_template.convert("RGB")
                                 r, g, b = map_template.getpixel((x, y))
                                 hex_color_map = f"#{r:02X}{g:02X}{b:02X}"
                                 r, g, b = template_image.getpixel((x - x_cord, y - y_cord))
                                 hex_color_template = f"#{r:02X}{g:02X}{b:02X}"
-                                if hex_color_map != hex_color_template: # если цвет на шаблоне не совпадает с изначальным происходит закрашивание пикселя
+                                if hex_color_map != hex_color_template:  # если цвет на шаблоне не совпадает с изначальным происходит закрашивание пикселя
                                     cord = y * 1000 + x
                                     color = hex_color_template
                                     paint = await self.paint(cord, color)
@@ -226,6 +240,17 @@ class NotPixel:
                                         await self.client.disconnect()
                                         await asyncio.sleep(random.uniform(*config.TASK_SLEEP))
                                         await self.do_task(task.split(":")[1], "channel")
+                                    elif task == "pixelInNickname":
+                                        await self.client.connect()
+                                        user = await self.client.get_me()
+                                        user_name = user.first_name
+                                        new_user_name = user_name + " ▪️"
+                                        print(new_user_name)
+                                        await self.client.update_profile(first_name=new_user_name)
+                                        await self.client.disconnect()
+                                        await asyncio.sleep(random.uniform(*config.TASK_SLEEP))
+                                        await self.do_task(task)
+
                                     else:
                                         await asyncio.sleep(random.uniform(*config.TASK_SLEEP))
                                         await self.do_task(task)
@@ -246,8 +271,9 @@ class NotPixel:
 
                 status = await self.status()
                 if status:
+                    add_delay = random.randint(1000, 1800) if random.randint(0, 4) == 0 else random.randint(100, 600)
                     sleep_time = (status["maxCharges"] - status["charges"]) * (
-                            status["reChargeSpeed"] // 1000) + random.randint(100, 600)
+                            status["reChargeSpeed"] // 1000) + add_delay
                     logger.info(f"main | Thread {self.thread} | {self.name} | КРУГ ОКОНЧЕН! Ожидание: {sleep_time}")
                     await self.session.close()
                     await asyncio.sleep(sleep_time)
@@ -262,12 +288,18 @@ class NotPixel:
 
     async def paint(self, pixel_id: int, color: str):
         body = {"pixelId": pixel_id, "newColor": color}
+        body_json = json.dumps(body)
+        content_length = str(len(body_json.encode('utf-8')))
+        self.session.headers['content-length'] = content_length
+        self.session.headers['content-type'] = 'application/json'
         response = await self.session.post("https://notpx.app/api/v1/repaint/start", json=body)
+        del self.session.headers['content-length']
+        del self.session.headers['content-type']
         if response.status not in config.BAD_RESPONSES:
             response = await response.json()
             if "balance" in response:
                 logger.success(
-                    f'paint | Thread {self.thread} | {self.name} | paint successfully: {response["balance"]} : {pixel_id}')
+                    f'paint | Thread {self.thread} | {self.name} | paint successfully: {response["balance"]}')
                 return True
         return False
 
@@ -311,6 +343,10 @@ class NotPixel:
                 if task_name in response and response[task_name] is True:
                     logger.success(f'task | Thread {self.thread} | {self.name} | Task completed: {task_name}')
                     return True
+                elif task_name in response and response[task_name] is False:
+                    logger.warning(
+                        f'task | Thread {self.thread} | {self.name} | Failed to complete task: {task_name}')
+                    return False
             return False
         params = {"name": task_name}
         response = await self.session.get(f"https://notpx.app/api/v1/mining/task/check/{type_task}", params=params)
@@ -321,12 +357,17 @@ class NotPixel:
                 logger.success(
                     f'task | Thread {self.thread} | {self.name} | Task completed: {task_name} {type_task}')
                 return True
+            elif task in response and response[task] is False:
+                logger.warning(
+                    f'task | Thread {self.thread} | {self.name} | Failed to complete task: {task_name} {type_task}')
+                return False
         return False
 
     async def choose_template(self, template_id):
         await self.session.get(f"https://notpx.app/api/v1/image/template/{template_id}")
         response = await self.session.put(f"https://notpx.app/api/v1/image/template/subscribe/{template_id}")
         await self.session.get(f"https://notpx.app/api/v1/image/template/{template_id}")
+        await self.get_template(template_id)
         if response.status == 204:
             return True
         return False
@@ -356,7 +397,11 @@ class NotPixel:
 
     async def event(self, body):
         del self.session.headers['authorization']
+        body_json = json.dumps(body)
+        content_length = str(len(body_json.encode('utf-8')))
+        self.session.headers['content-length'] = content_length
         response = await self.session.post("https://plausible.joincommunity.xyz/api/event", json=body)
+        del self.session.headers['content-length']
         self.session.headers['authorization'] = self.token
         if response.status == 202:
             return True
@@ -401,7 +446,7 @@ class NotPixel:
                 web_view = await self.client.invoke(RequestAppWebView(
                     peer=await self.client.resolve_peer('notpixel'),
                     app=InputBotAppShortName(bot_id=await self.client.resolve_peer('notpixel'), short_name="app"),
-                    platform=self.device,
+                    platform=self.device.lower(),
                     write_allowed=True,
                     start_param=self.ref
                 ))
@@ -426,6 +471,8 @@ class NotPixel:
             self.session.headers['authorization'] = self.token
             await self.event({"n": "pageview", "u": self.auth_url, "d": "notpx.app",
                               "r": "https://web.telegram.org/"})
+            self.session.headers['sec-fetch-site'] = 'same-site'
+
             if not await self.me():
                 return False
             return True
