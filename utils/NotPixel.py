@@ -76,7 +76,7 @@ class NotPixel:
 
         return aiohttp.ClientSession(headers=headers, trust_env=True, connector=connector)
 
-        async def set_useragent(self):
+    async def set_useragent(self):
         try:
             file_path = os.path.join(os.path.join(Path(__file__).parent.parent, "data"), "UserAgent.json")
 
