@@ -252,7 +252,7 @@ class NotPixel:
                                     await asyncio.sleep(random.uniform(*config.TASK_SLEEP))
                                     await self.do_task(league)
                                     break
-
+                    
                     await asyncio.sleep(random.uniform(*config.MINI_SLEEP))
                     if config.DO_UPGRADES:
                         await self.upgrade_skills()
@@ -260,16 +260,38 @@ class NotPixel:
                     await self.event({"n": "pageview", "u": "https://app.notpx.app/", "d": "notpx.app",
                                       "r": "https://web.telegram.org/"})
 
-                status = await self.status()
-                if status:
-                    add_delay = random.randint(1000, 1800) if random.randint(0, 4) == 0 else random.randint(100, 600)
-                    sleep_time = (status["maxCharges"] - status["charges"]) * (
-                            status["reChargeSpeed"] // 1000) + add_delay
-                    logger.info(f"main | Thread {self.thread} | {self.name} | КРУГ ОКОНЧЕН! Ожидание: {sleep_time}")
-                    await self.session.close()
-                    await asyncio.sleep(sleep_time)
+                if config.DO_SECRET_WORDS:
+                    await self.event({"n": "pageview", "u": "https://app.notpx.app/secrets", "d": "notpx.app",
+                                      "r": "https://web.telegram.org/"})
+                    await asyncio.sleep(random.randint(*config.MINI_SLEEP))
+                    for word in config.secret_words:
+                        i = 0
+                        while i < 6:
+                            status = await self.secretWord(word)
+                            if status:
+                                break
+
+                            await asyncio.sleep(random.randint(4, 6))
+                            i += 1
+
+                        await asyncio.sleep(random.randint(*config.MINI_SLEEP))
+                        
+                if config.DO_CYCLES:
+                    status = await self.status()
+                    if status:
+                        add_delay = random.randint(1000, 1800) if random.randint(0, 4) == 0 else random.randint(100, 600)
+                        sleep_time = (status["maxCharges"] - status["charges"]) * (
+                                status["reChargeSpeed"] // 1000) + add_delay
+                        logger.info(f"main | Thread {self.thread} | {self.name} | КРУГ ОКОНЧЕН! Ожидание: {sleep_time}")
+                        await self.session.close()
+                        await asyncio.sleep(sleep_time)
+                    else:
+                        raise Exception("Неудалось продолжить играть")
                 else:
-                    raise Exception("Неудалось продолжить играть")
+                    logger.info(f"main | Thread {self.thread} | {self.name} | Account terminated!")
+                    await self.session.close()
+                    return 0
+
 
             except Exception as err:
                 logger.error(f"main | Thread {self.thread} | {self.name} | {err}")
@@ -326,6 +348,23 @@ class NotPixel:
             return True
         return False
 
+    async def secretWord(self, word):
+        body = {"secret_word": word}
+        response = await self.session.post("https://notpx.app/api/v1/mining/quest/check/secretWord", json=body)
+        if response.status not in config.BAD_RESPONSES:
+            response = await response.json()
+            if "error" in response:
+                return True
+            if response["secretWord"]["success"]:
+                logger.success(
+                    f' secret word | Thread {self.thread} | {self.name} | Secret word posted successfully!: {response["secretWord"]["reward"]}')
+                return True
+            else:
+                logger.warning(
+                    f' secret word | Thread {self.thread} | {self.name} | Failed to post secret word!')
+                return False
+        return False
+    
     async def do_task(self, task_name, type_task=None):
         if not type_task:
             response = await self.session.get(f"https://notpx.app/api/v1/mining/task/check/{task_name}")
